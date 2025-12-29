@@ -1,0 +1,48 @@
+% 1. Resmi Yükle
+img = imread('nesne.jpg');
+
+% 2. Nesnenin Ne Olduğunu Bul (Yapay Zeka)
+% Eğer Deep Learning Toolbox yüklü değilse hata verebilir.
+try
+    net = googlenet; % GoogLeNet modelini yükle
+    inputSize = net.Layers(1).InputSize; % Modelin istediği giriş boyutu
+    imgResized = imresize(img, inputSize(1:2)); % Resmi modele göre boyutlandır
+    label = classify(net, imgResized); % Tahmin et
+catch
+    label = "Nesne Tanınamadı (Toolbox eksik olabilir)";
+end
+
+% 3. Çap Ölçümü İçin Görüntü İşleme
+grayImg = rgb2gray(img); % Gri tonlama
+bw = imbinarize(grayImg, 'adaptive'); % Siyah-beyaz yap
+bw = ~bw; % Eğer nesne koyu arka plan açıksa renkleri ters çevir
+bw = imfill(bw, 'holes'); % Delikleri doldur
+bw = bwareaopen(bw, 100); % Gürültüleri sil
+
+% Nesne özelliklerini hesapla
+stats = regionprops(bw, 'Centroid', 'EquivDiameter');
+
+% 4. Sonuçları Görselleştir
+imshow(img);
+hold on;
+
+if ~isempty(stats)
+    % Sadece en büyük nesneyi (genelde ana nesne odur) baz alalım
+    [~, idx] = max([stats.EquivDiameter]);
+    diam = stats(idx).EquivDiameter;
+    center = stats(idx).Centroid;
+
+    % Ekrana çizim yap
+    viscircles(center, diam/2, 'EdgeColor', 'g');
+    
+    % Bilgileri yazdır
+    title(['Tahmin: ' char(label)]);
+    text(10, 20, sprintf('Hesaplanan Çap: %.2f piksel', diam), ...
+        'Color', 'white', 'FontSize', 14, 'BackgroundColor', 'black');
+    
+    fprintf('Resimdeki nesne büyük ihtimalle: %s\n', char(label));
+    fprintf('Nesnenin çapı: %.2f piksel\n', diam);
+else
+    title('Nesne algılanamadı!');
+end
+hold off;
